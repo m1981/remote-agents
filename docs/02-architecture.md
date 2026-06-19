@@ -181,13 +181,16 @@ Notes:
 - `PATH` must include the directory containing `pi` (systemd user services don't source your shell profile — same gotcha OpenChamber documents).
 - No reverse proxy required inside the tailnet. Add Caddy only if you later want HTTPS even on tailnet hostnames.
 
-## 9. Open questions to decide before implementation
+## 9. Decided behaviour
+
+- **Concurrent viewers of one Session.** Allowed and synchronised. Each viewer receives an independent state snapshot on connect; all viewers share the same live event stream. Typing on any device queues the message into the same Agent. No "primary device" concept.
+- **Secrets.** API keys live in `~/.pi/agent/...` on the Host. The Backend never reads them; only the spawned `pi` subprocess does.
+- **Model selection.** Out of scope for the UI. Default model comes from `~/.pi/agent/settings.json`; the Owner edits that file on the Host to change it.
+
+## 9b. Open questions to decide before implementation
 
 1. **Workspace layout.** Single Workspace root (`/srv/workspace`) vs allow Owner to pick from `~/projects` on the Host? Spec assumes single root — simpler. Confirm.
-2. **Concurrent viewers of one Session.** Spec allows it (UC-2 step 5). Decision: do we send each viewer the full snapshot independently, or have viewers share a single subscription? Recommendation: independent snapshots, shared event stream.
-3. **Idle Agent reaping.** Should the Backend auto-terminate Live Sessions with no viewer attached for N hours? Out of MVP; revisit after first real use.
-4. **Model selection.** Currently out of scope (UI cannot switch models). Default model comes from `~/.pi/agent/settings.json`. Owner edits that file on the Host if they want to change it.
-5. **Secrets.** API keys live in `~/.pi/agent/...` on the Host, not in Backend env. Backend never sees them.
+2. **Idle Agent reaping.** Should the Backend auto-terminate Live Sessions with no viewer attached for N hours? Out of MVP; revisit after first real use.
 
 ## 10. What we deliberately did NOT do
 
