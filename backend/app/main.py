@@ -6,6 +6,8 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from starlette.responses import FileResponse
 
 from app.api.repos import create_repos_router
 from app.api.sessions import create_sessions_router
@@ -72,6 +74,30 @@ def create_app(
             JSON object with status='ok'.
         """
         return {"status": "ok"}
+
+    # Serve static files (frontend)
+    static_dir = Path(__file__).parent.parent / "static"
+    if static_dir.is_dir():
+        app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+
+        @app.get("/favicon.svg")
+        async def favicon():
+            return FileResponse(str(static_dir / "favicon.svg"))
+
+        @app.get("/manifest.webmanifest")
+        async def manifest():
+            return FileResponse(
+                str(static_dir / "manifest.webmanifest"),
+                media_type="application/manifest+json",
+            )
+
+        @app.get("/{path:path}")
+        async def serve_spa(path: str):
+            """Serve the SPA for all non-API routes."""
+            file_path = static_dir / path
+            if file_path.is_file():
+                return FileResponse(str(file_path))
+            return FileResponse(str(static_dir / "index.html"))
 
     return app
 
