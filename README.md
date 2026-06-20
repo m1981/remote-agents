@@ -368,3 +368,48 @@ See [docs/](docs/) for detailed specifications:
 ## License
 
 MIT
+
+## Deployment Status
+
+### OVH VPS (Production)
+
+| Item | Value |
+|------|-------|
+| **URL** | http://51.83.199.194:8080 |
+| **VPS** | OVH VPS-1 (Warsaw) |
+| **OS** | Ubuntu 26.04 LTS |
+| **IP** | 51.83.199.194 |
+| **Status** | ✅ Active |
+
+### Quick Commands
+
+```bash
+# SSH into VPS
+ssh ubuntu@51.83.199.194
+
+# Check service status
+systemctl --user status remote-agents
+
+# View logs
+journalctl --user -u remote-agents -f
+
+# Restart service
+systemctl --user restart remote-agents
+
+# Test health
+curl http://51.83.199.194:8080/health
+```
+
+### Adding Repositories
+
+```bash
+# SSH into VPS
+ssh ubuntu@51.83.199.194
+
+# Clone repos to workspace
+cd /srv/workspace
+git clone https://github.com/you/project.git
+
+# List repos
+curl http://localhost:8080/repos
+```
