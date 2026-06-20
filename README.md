@@ -413,3 +413,22 @@ git clone https://github.com/you/project.git
 # List repos
 curl http://localhost:8080/repos
 ```
+
+## Access URL
+
+### HTTPS (Secure)
+
+```
+https://51.83.199.194.sslip.io
+```
+
+> Uses [sslip.io](https://sslip.io) for automatic SSL certificate from Let's Encrypt.
+> The domain resolves to your VPS IP address.
+
+### Architecture
+
+```
+Browser ──HTTPS──▶ Caddy (port 443) ──HTTP──▶ uvicorn (port 8080)
+                      │
+                      └── Automatic SSL via Let's Encrypt
+```
