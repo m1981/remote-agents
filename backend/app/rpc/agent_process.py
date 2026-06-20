@@ -81,6 +81,9 @@ class AgentProcess:
         # Background task for reading stdout
         self._reader_task: asyncio.Task[None] | None = None
 
+        # Background task for reading stderr
+        self._stderr_task: asyncio.Task[None] | None = None
+
     @property
     def session_id(self) -> str | None:
         """The session ID assigned by pi."""
@@ -137,6 +140,7 @@ class AgentProcess:
 
         # Start background reader
         proc._reader_task = asyncio.create_task(proc._read_stdout())
+        proc._stderr_task = asyncio.create_task(proc._read_stderr())
 
         # Send get_state to get session ID
         # Real pi doesn't send initial state automatically
@@ -187,12 +191,28 @@ class AgentProcess:
                     f"(returncode={self._process.returncode})"
                 )
 
+    async def _read_stderr(self) -> None:
+        """Background task: read stderr and log it.
+
+        This prevents the stderr pipe buffer from filling up and blocking
+        the subprocess when it writes errors to stderr.
+        """
+        assert self._process.stderr is not None
+        try:
+            async for line in read_jsonl_lines(self._process.stderr):
+                logger.warning("pi stderr: %s", line)
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("stderr reader error: %s", e)
+
     async def _read_stdout(self) -> None:
         """Background task: read JSONL events from stdout and process them."""
         assert self._process.stdout is not None
 
         try:
             async for line in read_jsonl_lines(self._process.stdout):
+                logger.debug("pi stdout: %s", line)
                 try:
                     import json
                     raw = json.loads(line)
@@ -345,11 +365,15 @@ class AgentProcess:
 
         logger.info("Terminating agent process (pid=%s)", self._process.pid)
 
-        # Cancel reader task
+        # Cancel reader tasks
         if self._reader_task and not self._reader_task.done():
             self._reader_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._reader_task
+        if self._stderr_task and not self._stderr_task.done():
+            self._stderr_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._stderr_task
 
         # Try graceful shutdown
         try:
