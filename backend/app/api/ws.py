@@ -52,12 +52,12 @@ def create_ws_router() -> APIRouter:
         """
         registry = websocket.app.state.registry
         if registry is None:
-            await websocket.close(code=1011, detail="Registry not initialized")
+            await websocket.close(code=1011)
             return
 
         session = registry.get(session_id)
         if not session:
-            await websocket.close(code=4004, detail="Session not found")
+            await websocket.close(code=4004)
             return
 
         await websocket.accept()
