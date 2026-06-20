@@ -1,0 +1,6 @@
+# Caddyfile for remote-agents
+# Replace YOUR_DOMAIN with your actual domain (e.g., 51.83.199.194.sslip.io)
+
+YOUR_DOMAIN {
+    reverse_proxy localhost:8080
+}
