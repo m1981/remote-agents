@@ -153,7 +153,10 @@ async def _handle_client_message(
     """Handle a message from the client.
 
     Parses the message and forwards it to the agent as a command.
+    Runs the command in a separate task to not block event forwarding.
     """
+    import asyncio
+
     from app.rpc.types import (
         AbortCommand,
         FollowUpCommand,
@@ -173,27 +176,31 @@ async def _handle_client_message(
     msg_type = msg.get("type")
     message = msg.get("message")
 
-    try:
-        if msg_type == "prompt":
-            cmd = PromptCommand(message=message or "")
-            await session.agent.send(cmd)
-        elif msg_type == "steer":
-            cmd = SteerCommand(message=message or "")
-            await session.agent.send(cmd)
-        elif msg_type == "follow_up":
-            cmd = FollowUpCommand(message=message or "")
-            await session.agent.send(cmd)
-        elif msg_type == "abort":
-            cmd = AbortCommand()
-            await session.agent.send(cmd)
-        else:
+    async def run_command():
+        try:
+            if msg_type == "prompt":
+                cmd = PromptCommand(message=message or "")
+                await session.agent.send(cmd)
+            elif msg_type == "steer":
+                cmd = SteerCommand(message=message or "")
+                await session.agent.send(cmd)
+            elif msg_type == "follow_up":
+                cmd = FollowUpCommand(message=message or "")
+                await session.agent.send(cmd)
+            elif msg_type == "abort":
+                cmd = AbortCommand()
+                await session.agent.send(cmd)
+            else:
+                await websocket.send_text(json.dumps({
+                    "kind": "error",
+                    "reason": f"Unknown message type: {msg_type}",
+                }))
+        except Exception as e:
+            logger.error("Failed to handle client message: %s", e)
             await websocket.send_text(json.dumps({
                 "kind": "error",
-                "reason": f"Unknown message type: {msg_type}",
+                "reason": f"Command failed: {e}",
             }))
-    except Exception as e:
-        logger.error("Failed to handle client message: %s", e)
-        await websocket.send_text(json.dumps({
-            "kind": "error",
-            "reason": f"Command failed: {e}",
-        }))
+
+    # Run command in background to not block event forwarding
+    asyncio.create_task(run_command())
