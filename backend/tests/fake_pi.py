@@ -176,12 +176,8 @@ def handle_unknown(request_id: str | None, command_type: str) -> None:
 
 def main() -> None:
     """Main loop: read commands from stdin, emit events to stdout."""
-    # Emit initial state event (pi does this on startup)
-    write_event({
-        "type": "state",
-        "sessionId": SESSION_ID,
-        "sessionName": SESSION_NAME,
-    })
+    # Real pi does NOT send initial state automatically.
+    # We wait for get_state command to get session ID.
 
     for line in sys.stdin:
         line = line.rstrip("\r\n")

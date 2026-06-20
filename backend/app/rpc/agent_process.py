@@ -21,6 +21,7 @@ from app.rpc.framing import read_jsonl_lines
 from app.rpc.types import (
     Command,
     Event,
+    GetStateCommand,
     ResponseEvent,
     StateEvent,
     parse_event,
@@ -137,7 +138,12 @@ class AgentProcess:
         # Start background reader
         proc._reader_task = asyncio.create_task(proc._read_stdout())
 
-        # Wait for initial state event
+        # Send get_state to get session ID
+        # Real pi doesn't send initial state automatically
+        get_state_cmd = GetStateCommand()
+        await proc._send_raw(get_state_cmd)
+
+        # Wait for response with session ID
         await asyncio.wait_for(proc._wait_for_initial_state(), STARTUP_TIMEOUT)
 
         return proc
@@ -208,6 +214,20 @@ class AgentProcess:
 
                 # Handle response events - correlate by id
                 if isinstance(event, ResponseEvent) and event.id:
+                    # Check if this is a get_state response with session ID
+                    if (event.command == "get_state" and event.success and event.data):
+                        session_id = event.data.get("sessionId")
+                        if session_id and not self._session_id:
+                            self._session_id = session_id
+                            self._session_name = event.data.get("sessionName")
+                            logger.info(
+                                "Session started: id=%s name=%s",
+                                self._session_id,
+                                self._session_name,
+                            )
+                            # Don't store initial get_state in ring buffer
+                            continue
+
                     future = self._pending.pop(event.id, None)
                     if future and not future.done():
                         future.set_result(event)
@@ -233,6 +253,19 @@ class AgentProcess:
         """Generate a unique request ID."""
         self._next_id += 1
         return f"req-{self._next_id}"
+
+    async def _send_raw(self, command: Command) -> None:
+        """Send a command without waiting for response.
+
+        Used internally for initial get_state command.
+        """
+        if command.id is None:
+            command.id = self._generate_id()
+
+        assert self._process.stdin is not None
+        data = command.to_jsonl() + "\n"
+        self._process.stdin.write(data.encode("utf-8"))
+        await self._process.stdin.drain()
 
     async def send(self, command: Command) -> ResponseEvent:
         """Send a command and wait for the correlated response.
